@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a1a"/>
+      <stop offset="100%" style="stop-color:#1a1a3e"/>
+    </linearGradient>
+    <linearGradient id="player" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff"/>
+      <stop offset="100%" style="stop-color:#0066ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#00d9ff;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#00d9ff;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Glow effect -->
+  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
+
+  <!-- Stars in background -->
+  <circle cx="100" cy="80" r="3" fill="#fff" opacity="0.6"/>
+  <circle cx="400" cy="100" r="2" fill="#fff" opacity="0.5"/>
+  <circle cx="450" cy="350" r="4" fill="#fff" opacity="0.7"/>
+  <circle cx="80" cy="400" r="2" fill="#fff" opacity="0.5"/>
+  <circle cx="300" cy="50" r="2" fill="#fff" opacity="0.4"/>
+
+  <!-- Player character (spaceship/robot) -->
+  <g transform="translate(256, 280)">
+    <!-- Main body -->
+    <ellipse cx="0" cy="0" rx="60" ry="50" fill="url(#player)"/>
+
+    <!-- Cockpit/face -->
+    <ellipse cx="0" cy="-10" rx="35" ry="30" fill="#1a1a3e"/>
+    <ellipse cx="0" cy="-15" rx="25" ry="20" fill="url(#player)" opacity="0.3"/>
+
+    <!-- Eyes -->
+    <circle cx="-15" cy="-15" r="8" fill="#fff"/>
+    <circle cx="15" cy="-15" r="8" fill="#fff"/>
+    <circle cx="-12" cy="-15" r="4" fill="#333"/>
+    <circle cx="18" cy="-15" r="4" fill="#333"/>
+
+    <!-- Wing/armor details -->
+    <path d="M -60 -10 L -80 -30 L -80 30 L -60 10 Z" fill="url(#player)"/>
+    <path d="M 60 -10 L 80 -30 L 80 30 L 60 10 Z" fill="url(#player)"/>
+
+    <!-- Thruster glow -->
+    <ellipse cx="0" cy="55" rx="20" ry="15" fill="#00d9ff" opacity="0.6"/>
+    <ellipse cx="0" cy="60" rx="15" ry="10" fill="#00ffff" opacity="0.8"/>
+  </g>
+
+  <!-- Speed lines -->
+  <line x1="50" y1="256" x2="150" y2="256" stroke="#fff" stroke-width="3" opacity="0.3"/>
+  <line x1="30" y1="200" x2="100" y2="200" stroke="#fff" stroke-width="2" opacity="0.2"/>
+  <line x1="30" y1="312" x2="100" y2="312" stroke="#fff" stroke-width="2" opacity="0.2"/>
+  <line x1="362" y1="256" x2="462" y2="256" stroke="#fff" stroke-width="3" opacity="0.3"/>
+  <line x1="412" y1="200" x2="482" y2="200" stroke="#fff" stroke-width="2" opacity="0.2"/>
+  <line x1="412" y1="312" x2="482" y2="312" stroke="#fff" stroke-width="2" opacity="0.2"/>
+</svg>

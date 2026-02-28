@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Cosmic Runner - An endless space adventure! Dodge asteroids, collect stars, and see how far you can go!">
+    <title>Cosmic Runner - Endless Space Adventure</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+    <link rel="apple-touch-icon" href="assets/icons/icon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="screen active">
+        <div class="loading-content">
+            <h1 class="game-title loading-title">COSMIC RUNNER</h1>
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading...</p>
+            <div class="loading-progress">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen">
+        <div class="menu-content">
+            <h1 class="game-title">COSMIC RUNNER</h1>
+            <p class="tagline">Endless Space Adventure</p>
+
+            <div class="player-avatar" id="player-avatar">
+                <div class="avatar-glow"></div>
+                <svg viewBox="0 0 100 100" class="avatar-svg">
+                    <circle cx="50" cy="50" r="40" fill="url(#avatarGradient)" />
+                    <defs>
+                        <linearGradient id="avatarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00d9ff"/>
+                            <stop offset="100%" style="stop-color:#0066ff"/>
+                        </linearGradient>
+                    </defs>
+                    <circle cx="35" cy="40" r="8" fill="#fff"/>
+                    <circle cx="65" cy="40" r="8" fill="#fff"/>
+                    <circle cx="35" cy="40" r="3" fill="#333"/>
+                    <circle cx="65" cy="40" r="3" fill="#333"/>
+                    <path d="M 30 65 Q 50 80 70 65" stroke="#fff" stroke-width="3" fill="none"/>
+                </svg>
+            </div>
+
+            <button class="btn-play" id="btn-play">
+                <span>PLAY</span>
+                <div class="btn-glow"></div>
+            </button>
+
+            <div class="high-score-display">
+                <span class="label">BEST SCORE</span>
+                <span class="score" id="menu-high-score">0</span>
+            </div>
+
+            <div class="controls-hint">
+                <div class="hint-item">
+                    <span class="key-icon">↑</span>
+                    <span>or Tap Top</span>
+                    <span>Jump</span>
+                </div>
+                <div class="hint-item">
+                    <span class="key-icon">↓</span>
+                    <span>or Tap Bottom</span>
+                    <span>Slide</span>
+                </div>
+            </div>
+        </div>
+        <div class="background-particles" id="bg-particles"></div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- HUD -->
+        <div class="hud">
+            <div class="score-container">
+                <span class="score-label">SCORE</span>
+                <span class="score-value" id="current-score">0</span>
+            </div>
+
+            <div class="powerup-indicator" id="powerup-indicator">
+                <div class="powerup-icon"></div>
+                <div class="powerup-timer"></div>
+            </div>
+
+            <div class="pause-btn" id="pause-btn">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <rect x="6" y="4" width="4" height="16" fill="#fff"/>
+                    <rect x="14" y="4" width="4" height="16" fill="#fff"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Touch Controls Overlay -->
+        <div class="touch-controls" id="touch-controls">
+            <div class="touch-zone top-zone" id="jump-zone"></div>
+            <div class="touch-zone bottom-zone" id="slide-zone"></div>
+        </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pause-screen" class="screen">
+        <div class="pause-content">
+            <h2>PAUSED</h2>
+            <button class="btn-resume" id="btn-resume">RESUME</button>
+            <button class="btn-quit" id="btn-quit">QUIT</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="screen">
+        <div class="gameover-content">
+            <h2 class="gameover-title">GAME OVER</h2>
+
+            <div class="final-score">
+                <span class="label">SCORE</span>
+                <span class="score-value" id="final-score">0</span>
+            </div>
+
+            <div class="stats-container">
+                <div class="stat-item">
+                    <span class="stat-label">Distance</span>
+                    <span class="stat-value" id="stat-distance">0m</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Stars</span>
+                    <span class="stat-value" id="stat-stars">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Best</span>
+                    <span class="stat-value" id="stat-best">0</span>
+                </div>
+            </div>
+
+            <div class="new-high-score" id="new-high-score">
+                <span class="trophy">🏆</span>
+                <span>NEW HIGH SCORE!</span>
+            </div>
+
+            <button class="btn-play-again" id="btn-play-again">
+                <span>PLAY AGAIN</span>
+            </button>
+
+            <button class="btn-share" id="btn-share">
+                <span>SHARE SCORE</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Sound Toggle -->
+    <button class="sound-toggle" id="sound-toggle" aria-label="Toggle sound">
+        <svg viewBox="0 0 24 24" width="20" height="20" id="sound-icon">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" fill="#fff"/>
+        </svg>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/@poki/sdk@2.1.1/poki-sdk.min.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
