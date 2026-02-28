@@ -10,8 +10,13 @@ class CosmicRunner {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
 
+        // Responsive scaling
+        this.scale = 1;
+        this.baseWidth = 800;
+        this.baseHeight = 450;
+
         // Game state
-        this.state = 'loading'; // loading, menu, playing, paused, gameover
+        this.state = 'loading';
         this.score = 0;
         this.highScore = parseInt(localStorage.getItem('cosmicRunnerHighScore')) || 0;
         this.distance = 0;
@@ -26,20 +31,20 @@ class CosmicRunner {
         this.doubleScoreActive = false;
         this.slowMotionActive = false;
 
-        // Player
+        // Player - will be set in setupResponsiveValues()
         this.player = {
-            x: 80,
+            x: 0,
             y: 0,
-            width: 50,
-            height: 50,
+            width: 0,
+            height: 0,
             velocityY: 0,
-            gravity: 0.6,
-            jumpForce: -15,
+            gravity: 0,
+            jumpForce: 0,
             isJumping: false,
             isSliding: false,
             slideTimer: 0,
-            originalHeight: 50,
-            slideHeight: 25,
+            originalHeight: 0,
+            slideHeight: 0,
             rotation: 0
         };
 
@@ -66,7 +71,11 @@ class CosmicRunner {
 
         // Difficulty
         this.difficulty = 1;
-        this.speedIncrement = 0.0001;
+
+        // Touch handling
+        this.touchStartY = 0;
+        this.touchStartX = 0;
+        this.minSwipeDistance = 30;
 
         // Bind methods
         this.resize = this.resize.bind(this);
@@ -81,6 +90,7 @@ class CosmicRunner {
     async init() {
         this.setupCanvas();
         this.setupEventListeners();
+        this.setupResponsiveValues();
         this.initBackgroundStars();
         await this.initAudio();
         await this.initPokiSDK();
@@ -94,11 +104,41 @@ class CosmicRunner {
     }
 
     resize() {
+        // Fullscreen canvas
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this.groundY = this.canvas.height - 100;
 
-        // Keep player on ground after resize
+        // Calculate scale factor based on base resolution
+        this.scale = Math.min(
+            this.canvas.width / this.baseWidth,
+            this.canvas.height / this.baseHeight
+        );
+
+        // Ground position - 15% from bottom
+        this.groundY = this.canvas.height - (this.canvas.height * 0.15);
+
+        // Setup responsive player values
+        this.setupResponsiveValues();
+    }
+
+    setupResponsiveValues() {
+        // Player size scales with screen
+        const basePlayerSize = Math.min(this.canvas.width, this.canvas.height) * 0.08;
+        const playerSize = Math.max(40, Math.min(60, basePlayerSize));
+
+        // Update player dimensions
+        this.player.width = playerSize;
+        this.player.height = playerSize;
+        this.player.originalHeight = playerSize;
+        this.player.slideHeight = playerSize * 0.5;
+        this.player.x = this.canvas.width * 0.15; // 15% from left
+
+        // Player stats scale with screen size
+        const scaleRatio = this.canvas.height / this.baseHeight;
+        this.player.gravity = 0.8 * scaleRatio;
+        this.player.jumpForce = -15 * scaleRatio;
+
+        // Keep player on ground if in menu/loading
         if (this.state === 'menu' || this.state === 'loading') {
             this.player.y = this.groundY - this.player.height;
         }
@@ -123,32 +163,94 @@ class CosmicRunner {
             }
         });
 
-        // Touch controls
-        const jumpZone = document.getElementById('jump-zone');
-        const slideZone = document.getElementById('slide-zone');
-
-        if (jumpZone) {
-            jumpZone.addEventListener('touchstart', (e) => {
+        // Touch controls with swipe detection
+        const touchControls = document.getElementById('touch-controls');
+        if (touchControls) {
+            touchControls.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                if (this.state === 'playing') this.handleJump();
-            });
+                const touch = e.touches[0];
+                this.touchStartX = touch.clientX;
+                this.touchStartY = touch.clientY;
+            }, { passive: false });
+
+            touchControls.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                if (this.state !== 'playing') return;
+
+                const touch = e.changedTouches[0];
+                const deltaX = touch.clientX - this.touchStartX;
+                const deltaY = touch.clientY - this.touchStartY;
+
+                // Check for swipe gestures
+                if (Math.abs(deltaY) > this.minSwipeDistance) {
+                    if (deltaY < -this.minSwipeDistance) {
+                        // Swipe up
+                        this.handleJump();
+                    } else if (deltaY > this.minSwipeDistance) {
+                        // Swipe down
+                        this.handleSlide();
+                    }
+                } else {
+                    // Tap detection - tap zone
+                    const tapY = this.touchStartY;
+                    const screenHeight = this.canvas.height;
+
+                    if (tapY < screenHeight * 0.5) {
+                        // Top half tapped
+                        this.handleJump();
+                    } else {
+                        // Bottom half tapped
+                        this.handleSlide();
+                    }
+                }
+            }, { passive: false });
         }
 
-        if (slideZone) {
-            slideZone.addEventListener('touchstart', (e) => {
+        // Prevent default touch behaviors
+        document.addEventListener('touchmove', (e) => {
+            if (this.state === 'playing') {
                 e.preventDefault();
-                if (this.state === 'playing') this.handleSlide();
-            });
-        }
+            }
+        }, { passive: false });
 
-        // Screen transitions
-        document.getElementById('btn-play')?.addEventListener('click', () => this.startGame());
-        document.getElementById('btn-play-again')?.addEventListener('click', () => this.startGame());
-        document.getElementById('pause-btn')?.addEventListener('click', () => this.togglePause());
-        document.getElementById('btn-resume')?.addEventListener('click', () => this.togglePause());
-        document.getElementById('btn-quit')?.addEventListener('click', () => this.quitGame());
-        document.getElementById('btn-share')?.addEventListener('click', () => this.shareScore());
-        document.getElementById('sound-toggle')?.addEventListener('click', () => this.toggleSound());
+        // Button handlers
+        document.getElementById('btn-play')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.startGame();
+        });
+        document.getElementById('btn-play-again')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.startGame();
+        });
+        document.getElementById('pause-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.togglePause();
+        });
+        document.getElementById('btn-resume')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.togglePause();
+        });
+        document.getElementById('btn-quit')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.quitGame();
+        });
+        document.getElementById('btn-share')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.shareScore();
+        });
+        document.getElementById('sound-toggle')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleSound();
+        });
+
+        // Handle visibility change (pause when tab hidden)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && this.state === 'playing') {
+                this.togglePause();
+            }
+        });
     }
 
     async initAudio() {
@@ -161,7 +263,6 @@ class CosmicRunner {
 
     async initPokiSDK() {
         return new Promise((resolve) => {
-            // Wait for Poki SDK
             const checkSDK = () => {
                 if (window.PokiSDK) {
                     this.pokiAvailable = true;
@@ -177,15 +278,14 @@ class CosmicRunner {
                     setTimeout(checkSDK, 100);
                 }
             };
-
-            // Timeout after 3 seconds
             setTimeout(resolve, 3000);
             checkSDK();
         });
     }
 
     initBackgroundStars() {
-        for (let i = 0; i < 100; i++) {
+        const starCount = Math.floor(this.canvas.width / 10);
+        for (let i = 0; i < starCount; i++) {
             this.starsBackground.push({
                 x: Math.random() * this.canvas.width,
                 y: Math.random() * this.canvas.height,
@@ -208,12 +308,12 @@ class CosmicRunner {
                     this.showScreen('start-screen');
                     this.state = 'menu';
                     this.renderMenuBackground();
-                }, 500);
+                }, 300);
             }
             if (progressBar) {
                 progressBar.style.width = progress + '%';
             }
-        }, 200);
+        }, 150);
     }
 
     showScreen(screenId) {
@@ -234,69 +334,64 @@ class CosmicRunner {
         return Math.floor(score).toLocaleString();
     }
 
-    // Sound effects using Web Audio API
     playSound(type) {
         if (!this.soundEnabled || !this.audioContext) return;
 
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
-
         oscillator.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
 
+        const now = this.audioContext.currentTime;
+
         switch (type) {
             case 'jump':
-                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(600, this.audioContext.currentTime + 0.1);
-                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(400, now);
+                oscillator.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                oscillator.start(now);
+                oscillator.stop(now + 0.1);
                 break;
-
             case 'slide':
-                oscillator.frequency.setValueAtTime(300, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.15);
-                gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.15);
+                oscillator.frequency.setValueAtTime(300, now);
+                oscillator.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                oscillator.start(now);
+                oscillator.stop(now + 0.15);
                 break;
-
             case 'collect':
-                oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(1200, this.audioContext.currentTime + 0.1);
-                gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(800, now);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                oscillator.start(now);
+                oscillator.stop(now + 0.1);
                 break;
-
             case 'powerup':
-                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 0.2);
-                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.2);
+                oscillator.frequency.setValueAtTime(400, now);
+                oscillator.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                oscillator.start(now);
+                oscillator.stop(now + 0.2);
                 break;
-
             case 'hit':
-                oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.2);
-                gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.2);
+                oscillator.frequency.setValueAtTime(200, now);
+                oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+                gainNode.gain.setValueAtTime(0.4, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                oscillator.start(now);
+                oscillator.stop(now + 0.2);
                 break;
-
             case 'gameover':
-                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.5);
-                gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
-                oscillator.start(this.audioContext.currentTime);
-                oscillator.stop(this.audioContext.currentTime + 0.5);
+                oscillator.frequency.setValueAtTime(400, now);
+                oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.5);
+                gainNode.gain.setValueAtTime(0.4, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                oscillator.start(now);
+                oscillator.stop(now + 0.5);
                 break;
         }
     }
@@ -334,7 +429,9 @@ class CosmicRunner {
         this.player.velocityY = 0;
         this.player.isJumping = false;
         this.player.isSliding = false;
+        this.player.slideTimer = 0;
         this.player.rotation = 0;
+        this.player.height = this.player.originalHeight;
 
         // UI updates
         this.showScreen('game-screen');
@@ -345,7 +442,7 @@ class CosmicRunner {
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
 
-        // Poki SDK - Game Start
+        // Poki SDK
         if (this.pokiSDK) {
             window.PokiSDK_gameStart();
         }
@@ -355,7 +452,6 @@ class CosmicRunner {
         if (this.state === 'playing') {
             this.state = 'paused';
             this.showScreen('pause-screen');
-            document.getElementById('pause-screen')?.classList.add('active');
             if (this.pokiSDK) {
                 window.PokiSDK_gameStop();
             }
@@ -378,7 +474,6 @@ class CosmicRunner {
 
     shareScore() {
         const text = `I scored ${this.formatScore(this.score)} in Cosmic Runner! Can you beat my score?`;
-
         if (navigator.share) {
             navigator.share({
                 title: 'Cosmic Runner',
@@ -386,9 +481,13 @@ class CosmicRunner {
                 url: window.location.href
             }).catch(() => {});
         } else {
-            // Fallback to clipboard
             navigator.clipboard?.writeText(text);
-            alert('Score copied to clipboard!');
+            const btn = document.getElementById('btn-share');
+            if (btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span>COPIED!</span>';
+                setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+            }
         }
     }
 
@@ -410,6 +509,9 @@ class CosmicRunner {
                     size: Math.random() * 4 + 2
                 });
             }
+        } else if (this.player.isJumping) {
+            // Fast fall on double tap
+            this.player.velocityY = Math.abs(this.player.jumpForce) * 0.8;
         }
     }
 
@@ -418,7 +520,7 @@ class CosmicRunner {
             this.player.isSliding = true;
             this.player.height = this.player.slideHeight;
             this.player.y = this.groundY - this.player.height;
-            this.slideTimer = 40; // frames
+            this.slideTimer = 40;
             this.playSound('slide');
 
             // Slide particles
@@ -434,8 +536,7 @@ class CosmicRunner {
                 });
             }
         } else if (this.player.isJumping) {
-            // Fast fall
-            this.player.velocityY = 10;
+            this.player.velocityY = Math.abs(this.player.jumpForce) * 0.8;
         }
     }
 
@@ -443,27 +544,25 @@ class CosmicRunner {
         const types = ['ground', 'ground', 'ground', 'air', 'tall'];
         const type = types[Math.floor(Math.random() * types.length)];
 
-        let obstacle = {
-            x: this.canvas.width + 100,
-            type: type
-        };
+        const scaleRatio = this.canvas.height / this.baseHeight;
+        let obstacle = { x: this.canvas.width + 100, type };
 
         switch (type) {
             case 'ground':
-                obstacle.width = 50 + Math.random() * 30;
-                obstacle.height = 50 + Math.random() * 20;
+                obstacle.width = (50 + Math.random() * 30) * scaleRatio;
+                obstacle.height = (50 + Math.random() * 20) * scaleRatio;
                 obstacle.y = this.groundY - obstacle.height;
                 obstacle.color = '#ff006e';
                 break;
             case 'air':
-                obstacle.width = 60;
-                obstacle.height = 60;
-                obstacle.y = this.groundY - 120 - Math.random() * 40;
+                obstacle.width = 60 * scaleRatio;
+                obstacle.height = 60 * scaleRatio;
+                obstacle.y = this.groundY - (120 * scaleRatio) - Math.random() * (40 * scaleRatio);
                 obstacle.color = '#ff6b6b';
                 break;
             case 'tall':
-                obstacle.width = 40;
-                obstacle.height = 100;
+                obstacle.width = 40 * scaleRatio;
+                obstacle.height = 100 * scaleRatio;
                 obstacle.y = this.groundY - obstacle.height;
                 obstacle.color = '#c9184a';
                 break;
@@ -475,14 +574,15 @@ class CosmicRunner {
     spawnStar() {
         const patterns = ['line', 'arc', 'scattered'];
         const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+        const scaleRatio = this.canvas.height / this.baseHeight;
 
         switch (pattern) {
             case 'line':
                 for (let i = 0; i < 5; i++) {
                     this.stars.push({
-                        x: this.canvas.width + 50 + i * 40,
-                        y: this.groundY - 80 - Math.random() * 100,
-                        size: 20,
+                        x: this.canvas.width + 50 + i * 40 * scaleRatio,
+                        y: this.groundY - (80 * scaleRatio) - Math.random() * (100 * scaleRatio),
+                        size: 20 * scaleRatio,
                         collected: false,
                         rotation: Math.random() * Math.PI * 2
                     });
@@ -491,9 +591,9 @@ class CosmicRunner {
             case 'arc':
                 for (let i = 0; i < 7; i++) {
                     this.stars.push({
-                        x: this.canvas.width + 50 + i * 35,
-                        y: this.groundY - 80 - Math.sin(i * 0.5) * 60,
-                        size: 20,
+                        x: this.canvas.width + 50 + i * 35 * scaleRatio,
+                        y: this.groundY - (80 * scaleRatio) - Math.sin(i * 0.5) * (60 * scaleRatio),
+                        size: 20 * scaleRatio,
                         collected: false,
                         rotation: Math.random() * Math.PI * 2
                     });
@@ -502,9 +602,9 @@ class CosmicRunner {
             case 'scattered':
                 for (let i = 0; i < 4; i++) {
                     this.stars.push({
-                        x: this.canvas.width + 50 + Math.random() * 150,
-                        y: this.groundY - 60 - Math.random() * 120,
-                        size: 20,
+                        x: this.canvas.width + 50 + Math.random() * (150 * scaleRatio),
+                        y: this.groundY - (60 * scaleRatio) - Math.random() * (120 * scaleRatio),
+                        size: 20 * scaleRatio,
                         collected: false,
                         rotation: Math.random() * Math.PI * 2
                     });
@@ -516,18 +616,18 @@ class CosmicRunner {
     spawnPowerup() {
         const types = ['shield', 'double', 'slow'];
         const type = types[Math.floor(Math.random() * types.length)];
+        const scaleRatio = this.canvas.height / this.baseHeight;
 
         this.powerups.push({
             x: this.canvas.width + 50,
-            y: this.groundY - 80 - Math.random() * 80,
+            y: this.groundY - (80 * scaleRatio) - Math.random() * (80 * scaleRatio),
             type: type,
-            size: 30,
+            size: 30 * scaleRatio,
             collected: false
         });
     }
 
     updatePlayer() {
-        // Gravity
         this.player.velocityY += this.player.gravity;
         this.player.y += this.player.velocityY;
 
@@ -543,12 +643,12 @@ class CosmicRunner {
             this.slideTimer--;
             if (this.slideTimer <= 0) {
                 this.player.isSliding = false;
-                this.player.y = this.player.y - (this.player.originalHeight - this.player.slideHeight);
                 this.player.height = this.player.originalHeight;
+                this.player.y = this.groundY - this.player.height;
             }
         }
 
-        // Rotation effect when jumping
+        // Rotation when jumping
         if (this.player.isJumping) {
             this.player.rotation += 0.15;
         } else {
@@ -558,26 +658,24 @@ class CosmicRunner {
 
     updateObstacles() {
         for (let i = this.obstacles.length - 1; i >= 0; i--) {
-            this.obstacles[i].x -= this.gameSpeed;
+            const obs = this.obstacles[i];
+            obs.x -= this.gameSpeed;
 
-            // Remove off-screen obstacles
-            if (this.obstacles[i].x + this.obstacles[i].width < -50) {
+            if (obs.x + obs.width < -50) {
                 this.obstacles.splice(i, 1);
                 continue;
             }
 
-            // Collision detection
-            if (this.checkCollision(this.player, this.obstacles[i])) {
+            if (this.checkCollision(this.player, obs)) {
                 if (this.shieldActive) {
                     this.shieldActive = false;
                     this.obstacles.splice(i, 1);
                     this.playSound('powerup');
 
-                    // Shield break particles
                     for (let j = 0; j < 20; j++) {
                         this.particles.push({
-                            x: this.obstacles[i]?.x || this.player.x,
-                            y: this.obstacles[i]?.y || this.player.y,
+                            x: obs.x + obs.width / 2,
+                            y: obs.y + obs.height / 2,
                             vx: (Math.random() - 0.5) * 8,
                             vy: (Math.random() - 0.5) * 8,
                             life: 1,
@@ -591,11 +689,12 @@ class CosmicRunner {
             }
         }
 
-        // Spawn new obstacles
+        // Spawn obstacles
         this.obstacleTimer--;
         if (this.obstacleTimer <= 0) {
             this.spawnObstacle();
-            this.obstacleTimer = 60 + Math.random() * 60 - this.difficulty * 10;
+            const scaleRatio = this.canvas.height / this.baseHeight;
+            this.obstacleTimer = (60 + Math.random() * 60 - this.difficulty * 10) / scaleRatio;
             if (this.obstacleTimer < 30) this.obstacleTimer = 30;
         }
     }
@@ -605,13 +704,11 @@ class CosmicRunner {
             this.stars[i].x -= this.gameSpeed;
             this.stars[i].rotation += 0.02;
 
-            // Remove off-screen stars
             if (this.stars[i].x + this.stars[i].size < -50) {
                 this.stars.splice(i, 1);
                 continue;
             }
 
-            // Collision detection
             const dx = (this.player.x + this.player.width / 2) - (this.stars[i].x + this.stars[i].size / 2);
             const dy = (this.player.y + this.player.height / 2) - (this.stars[i].y + this.stars[i].size / 2);
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -622,7 +719,6 @@ class CosmicRunner {
                 this.starsCollected++;
                 this.playSound('collect');
 
-                // Collect particles
                 for (let j = 0; j < 8; j++) {
                     this.particles.push({
                         x: this.stars[i].x + this.stars[i].size / 2,
@@ -651,13 +747,11 @@ class CosmicRunner {
         for (let i = this.powerups.length - 1; i >= 0; i--) {
             this.powerups[i].x -= this.gameSpeed;
 
-            // Remove off-screen powerups
             if (this.powerups[i].x + this.powerups[i].size < -50) {
                 this.powerups.splice(i, 1);
                 continue;
             }
 
-            // Collision detection
             const dx = (this.player.x + this.player.width / 2) - (this.powerups[i].x + this.powerups[i].size / 2);
             const dy = (this.player.y + this.player.height / 2) - (this.powerups[i].y + this.powerups[i].size / 2);
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -683,35 +777,31 @@ class CosmicRunner {
             case 'shield':
                 this.shieldActive = true;
                 this.powerup = 'shield';
-                this.powerupTimer = 600; // 10 seconds at 60fps
+                this.powerupTimer = 600;
                 break;
             case 'double':
                 this.doubleScoreActive = true;
                 this.powerup = 'double';
-                this.powerupTimer = 480; // 8 seconds
+                this.powerupTimer = 480;
                 break;
             case 'slow':
                 this.slowMotionActive = true;
                 this.powerup = 'slow';
-                this.powerupTimer = 360; // 6 seconds
+                this.powerupTimer = 360;
                 break;
         }
-
         document.getElementById('powerup-indicator')?.classList.add('active');
     }
 
     updatePowerupTimer() {
         if (this.powerupTimer > 0) {
             this.powerupTimer--;
-
-            // Update timer bar
             const maxTime = this.powerup === 'shield' ? 600 : this.powerup === 'double' ? 480 : 360;
             const percent = (this.powerupTimer / maxTime) * 100;
             const timerBar = document.querySelector('.powerup-timer-fill');
             if (timerBar) {
                 timerBar.style.width = percent + '%';
             }
-
             if (this.powerupTimer <= 0) {
                 this.shieldActive = false;
                 this.doubleScoreActive = false;
@@ -724,12 +814,12 @@ class CosmicRunner {
 
     updateParticles() {
         for (let i = this.particles.length - 1; i >= 0; i--) {
-            this.particles[i].x += this.particles[i].vx;
-            this.particles[i].y += this.particles[i].vy;
-            this.particles[i].life -= 0.02;
-            this.particles[i].vy += 0.1; // gravity
-
-            if (this.particles[i].life <= 0) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.02;
+            p.vy += 0.1;
+            if (p.life <= 0) {
                 this.particles.splice(i, 1);
             }
         }
@@ -746,8 +836,7 @@ class CosmicRunner {
     }
 
     checkCollision(player, obstacle) {
-        // Shrink hitbox slightly for better gameplay feel
-        const padding = 8;
+        const padding = Math.max(4, this.player.width * 0.15);
         return (
             player.x + padding < obstacle.x + obstacle.width &&
             player.x + player.width - padding > obstacle.x &&
@@ -760,14 +849,12 @@ class CosmicRunner {
         this.state = 'gameover';
         this.playSound('gameover');
 
-        // Update high score
         const isNewHighScore = this.score > this.highScore;
         if (isNewHighScore) {
             this.highScore = this.score;
             localStorage.setItem('cosmicRunnerHighScore', this.highScore);
         }
 
-        // Update UI
         document.getElementById('final-score').textContent = this.formatScore(this.score);
         document.getElementById('stat-distance').textContent = Math.floor(this.distance) + 'm';
         document.getElementById('stat-stars').textContent = this.starsCollected;
@@ -780,7 +867,6 @@ class CosmicRunner {
 
         this.showScreen('gameover-screen');
 
-        // Poki SDK
         if (this.pokiSDK) {
             window.PokiSDK_gameStop();
         }
@@ -789,14 +875,11 @@ class CosmicRunner {
     updateScore() {
         this.distance += this.gameSpeed * 0.01;
         this.score += this.doubleScoreActive ? 0.02 : 0.01;
-
-        // Increase difficulty
         this.difficulty += 0.001;
         this.gameSpeed = this.baseSpeed + this.difficulty * 2;
         if (this.slowMotionActive) {
             this.gameSpeed *= 0.5;
         }
-
         document.getElementById('current-score').textContent = this.formatScore(this.score);
     }
 
@@ -804,14 +887,12 @@ class CosmicRunner {
         this.ctx.fillStyle = '#050510';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw stars
         for (const star of this.starsBackground) {
             star.x -= star.speed * 0.5;
             if (star.x < 0) {
                 star.x = this.canvas.width;
                 star.y = Math.random() * this.canvas.height;
             }
-
             const brightness = 0.3 + Math.sin(Date.now() * 0.003 + star.brightness * 10) * 0.3;
             this.ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
             this.ctx.beginPath();
@@ -825,11 +906,11 @@ class CosmicRunner {
     }
 
     render() {
-        // Clear canvas
+        // Clear
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw background stars
+        // Background stars
         for (const star of this.starsBackground) {
             const brightness = 0.3 + Math.sin(Date.now() * 0.003 + star.brightness * 10) * 0.3;
             this.ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
@@ -838,7 +919,7 @@ class CosmicRunner {
             this.ctx.fill();
         }
 
-        // Draw ground
+        // Ground
         const groundGradient = this.ctx.createLinearGradient(0, this.groundY - 50, 0, this.groundY);
         groundGradient.addColorStop(0, '#1a1a2e');
         groundGradient.addColorStop(1, '#0f0f1a');
@@ -853,14 +934,12 @@ class CosmicRunner {
         this.ctx.lineTo(this.canvas.width, this.groundY - 50);
         this.ctx.stroke();
 
-        // Draw obstacles
+        // Obstacles
         for (const obs of this.obstacles) {
             this.ctx.save();
             this.ctx.fillStyle = obs.color;
             this.ctx.shadowColor = obs.color;
             this.ctx.shadowBlur = 20;
-
-            // Draw with beveled edges
             this.ctx.beginPath();
             this.ctx.moveTo(obs.x + 5, obs.y);
             this.ctx.lineTo(obs.x + obs.width - 5, obs.y);
@@ -875,7 +954,7 @@ class CosmicRunner {
             this.ctx.restore();
         }
 
-        // Draw stars
+        // Stars
         for (const star of this.stars) {
             this.ctx.save();
             this.ctx.translate(star.x + star.size / 2, star.y + star.size / 2);
@@ -883,8 +962,6 @@ class CosmicRunner {
             this.ctx.fillStyle = '#ffd700';
             this.ctx.shadowColor = '#ffd700';
             this.ctx.shadowBlur = 15;
-
-            // Draw star shape
             this.ctx.beginPath();
             for (let i = 0; i < 5; i++) {
                 const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
@@ -898,40 +975,35 @@ class CosmicRunner {
             this.ctx.restore();
         }
 
-        // Draw powerups
+        // Powerups
         for (const p of this.powerups) {
             this.ctx.save();
             this.ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
-
-            let color;
-            let symbol;
+            let color, symbol;
             switch (p.type) {
                 case 'shield': color = '#00d9ff'; symbol = '🛡️'; break;
                 case 'double': color = '#00ff88'; symbol = '2x'; break;
                 case 'slow': color = '#7b2cbf'; symbol = '⏱️'; break;
             }
-
             this.ctx.fillStyle = color;
             this.ctx.shadowColor = color;
             this.ctx.shadowBlur = 20;
             this.ctx.beginPath();
             this.ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
             this.ctx.fill();
-
             this.ctx.fillStyle = '#fff';
-            this.ctx.font = '16px Arial';
+            this.ctx.font = `${p.size * 0.6}px Arial`;
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
             this.ctx.fillText(symbol, 0, 0);
             this.ctx.restore();
         }
 
-        // Draw player
+        // Player
         this.ctx.save();
         this.ctx.translate(this.player.x + this.player.width / 2, this.player.y + this.player.height / 2);
         this.ctx.rotate(this.player.rotation);
 
-        // Player glow
         if (this.shieldActive) {
             this.ctx.shadowColor = '#00d9ff';
             this.ctx.shadowBlur = 30;
@@ -943,16 +1015,14 @@ class CosmicRunner {
             this.ctx.shadowBlur = 30;
         }
 
-        // Player body
         const playerGradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, this.player.width / 2);
         playerGradient.addColorStop(0, '#00ffff');
         playerGradient.addColorStop(1, '#0066ff');
         this.ctx.fillStyle = playerGradient;
 
-        // Rounded rectangle for player
         const w = this.player.width;
         const h = this.player.height;
-        const r = 10;
+        const r = w * 0.2;
         this.ctx.beginPath();
         this.ctx.moveTo(-w/2 + r, -h/2);
         this.ctx.lineTo(w/2 - r, -h/2);
@@ -970,17 +1040,17 @@ class CosmicRunner {
         this.ctx.fillStyle = '#fff';
         this.ctx.shadowBlur = 0;
         this.ctx.beginPath();
-        this.ctx.arc(-w/6, -h/8, 6, 0, Math.PI * 2);
-        this.ctx.arc(w/6, -h/8, 6, 0, Math.PI * 2);
+        this.ctx.arc(-w/6, -h/8, w * 0.12, 0, Math.PI * 2);
+        this.ctx.arc(w/6, -h/8, w * 0.12, 0, Math.PI * 2);
         this.ctx.fill();
 
         this.ctx.fillStyle = '#333';
         this.ctx.beginPath();
-        this.ctx.arc(-w/6 + 2, -h/8, 3, 0, Math.PI * 2);
-        this.ctx.arc(w/6 + 2, -h/8, 3, 0, Math.PI * 2);
+        this.ctx.arc(-w/6 + w * 0.04, -h/8, w * 0.06, 0, Math.PI * 2);
+        this.ctx.arc(w/6 + w * 0.04, -h/8, w * 0.06, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Shield effect
+        // Shield
         if (this.shieldActive) {
             this.ctx.strokeStyle = '#00d9ff';
             this.ctx.lineWidth = 3;
@@ -991,7 +1061,7 @@ class CosmicRunner {
 
         this.ctx.restore();
 
-        // Draw particles
+        // Particles
         for (const p of this.particles) {
             this.ctx.globalAlpha = p.life;
             this.ctx.fillStyle = p.color;
@@ -1003,7 +1073,7 @@ class CosmicRunner {
         }
         this.ctx.globalAlpha = 1;
 
-        // Speed lines effect
+        // Speed lines
         if (this.gameSpeed > 8) {
             this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             this.ctx.lineWidth = 1;
@@ -1023,7 +1093,6 @@ class CosmicRunner {
         const deltaTime = currentTime - this.lastTime;
         this.lastTime = currentTime;
 
-        // Update
         this.updatePlayer();
         this.updateObstacles();
         this.updateStars();
@@ -1032,15 +1101,13 @@ class CosmicRunner {
         this.updateBackground();
         this.updatePowerupTimer();
         this.updateScore();
-
-        // Render
         this.render();
 
         requestAnimationFrame(this.gameLoop);
     }
 }
 
-// Start the game when DOM is ready
+// Start when DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new CosmicRunner();
 });

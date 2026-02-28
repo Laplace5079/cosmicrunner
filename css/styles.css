@@ -30,6 +30,7 @@ html, body {
     font-family: 'Rajdhani', sans-serif;
     background: var(--bg-darker);
     color: var(--text-color);
+    touch-action: none;
 }
 
 /* Screens */
@@ -56,6 +57,7 @@ html, body {
 
 .loading-content {
     text-align: center;
+    padding: 20px;
 }
 
 .loading-title {
@@ -88,6 +90,7 @@ html, body {
 
 .loading-progress {
     width: 200px;
+    max-width: 80vw;
     height: 4px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 2px;
@@ -112,6 +115,8 @@ html, body {
     text-align: center;
     padding: 20px;
     z-index: 10;
+    max-width: 500px;
+    width: 100%;
 }
 
 .game-title {
@@ -124,19 +129,20 @@ html, body {
     background-clip: text;
     text-shadow: 0 0 40px rgba(0, 217, 255, 0.5);
     margin-bottom: 8px;
+    line-height: 1.1;
 }
 
 .tagline {
-    font-size: clamp(14px, 4vw, 18px);
+    font-size: clamp(12px, 3vw, 18px);
     opacity: 0.7;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     letter-spacing: 2px;
 }
 
 .player-avatar {
-    width: 100px;
-    height: 100px;
-    margin: 0 auto 30px;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
     position: relative;
 }
 
@@ -157,9 +163,9 @@ html, body {
 .btn-play {
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     border: none;
-    padding: 18px 60px;
+    padding: clamp(14px, 4vw, 18px) clamp(40px, 10vw, 60px);
     font-family: 'Orbitron', sans-serif;
-    font-size: clamp(18px, 5vw, 24px);
+    font-size: clamp(16px, 4vw, 24px);
     font-weight: 700;
     color: white;
     border-radius: 50px;
@@ -168,7 +174,8 @@ html, body {
     overflow: hidden;
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 10px 40px rgba(0, 217, 255, 0.4);
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    min-width: 200px;
 }
 
 .btn-play:hover {
@@ -197,15 +204,15 @@ html, body {
 
 .high-score-display {
     background: rgba(255, 255, 255, 0.1);
-    padding: 15px 30px;
+    padding: 12px 25px;
     border-radius: 15px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     backdrop-filter: blur(10px);
 }
 
 .high-score-display .label {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
     opacity: 0.6;
     letter-spacing: 2px;
     margin-bottom: 5px;
@@ -214,7 +221,7 @@ html, body {
 .high-score-display .score {
     display: block;
     font-family: 'Orbitron', sans-serif;
-    font-size: 32px;
+    font-size: clamp(24px, 6vw, 32px);
     font-weight: 700;
     color: var(--primary-color);
 }
@@ -222,7 +229,7 @@ html, body {
 .controls-hint {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 15px;
     flex-wrap: wrap;
 }
 
@@ -230,22 +237,23 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: rgba(255, 255, 255, 0.05);
-    padding: 15px 20px;
+    padding: 12px 16px;
     border-radius: 10px;
+    min-width: 80px;
 }
 
 .key-icon {
     background: rgba(255, 255, 255, 0.2);
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 8px;
     font-weight: 700;
-    font-size: 18px;
+    font-size: clamp(14px, 3vw, 18px);
 }
 
 .hint-item span:last-child {
-    font-size: 12px;
+    font-size: 11px;
     opacity: 0.7;
 }
 
@@ -269,12 +277,13 @@ html, body {
     display: block;
 }
 
+/* HUD - Positioned to avoid safe areas */
 .hud {
-    position: absolute;
-    top: 0;
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
     left: 0;
     right: 0;
-    padding: 15px 20px;
+    padding: 10px 15px;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -284,18 +293,23 @@ html, body {
 
 .score-container {
     pointer-events: auto;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px 15px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
 }
 
 .score-label {
     display: block;
-    font-size: 12px;
+    font-size: 10px;
     opacity: 0.6;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
 }
 
 .score-value {
     font-family: 'Orbitron', sans-serif;
-    font-size: 28px;
+    font-size: clamp(20px, 5vw, 28px);
     font-weight: 700;
     color: var(--primary-color);
     text-shadow: 0 0 20px rgba(0, 217, 255, 0.5);
@@ -316,16 +330,16 @@ html, body {
 }
 
 .powerup-icon {
-    width: 40px;
-    height: 40px;
+    width: 35px;
+    height: 35px;
     background: linear-gradient(135deg, var(--success-color), var(--primary-color));
     border-radius: 50%;
     animation: pulse 1s ease-in-out infinite;
 }
 
 .powerup-timer {
-    width: 60px;
-    height: 4px;
+    width: 50px;
+    height: 3px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 2px;
     overflow: hidden;
@@ -340,36 +354,42 @@ html, body {
 
 .pause-btn {
     pointer-events: auto;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
     border: none;
-    padding: 12px;
+    padding: 10px;
     border-radius: 50%;
     cursor: pointer;
     transition: background 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
 }
 
 .pause-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.25);
 }
 
-/* Touch Controls */
+.pause-btn:active {
+    transform: scale(0.9);
+}
+
+/* Touch Controls - Invisible zones */
 .touch-controls {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     z-index: 50;
+    pointer-events: auto;
 }
 
 .touch-zone {
     position: absolute;
     left: 0;
     width: 100%;
-    transition: background 0.1s;
 }
 
 .top-zone {
@@ -390,27 +410,29 @@ html, body {
 
 .pause-content {
     text-align: center;
+    padding: 30px;
 }
 
 .pause-content h2 {
     font-family: 'Orbitron', sans-serif;
-    font-size: 48px;
-    margin-bottom: 40px;
+    font-size: clamp(32px, 8vw, 48px);
+    margin-bottom: 30px;
     color: var(--primary-color);
 }
 
 .btn-resume, .btn-quit {
     display: block;
-    width: 200px;
+    width: clamp(160px, 40vw, 200px);
     padding: 15px;
     margin: 10px auto;
     font-family: 'Orbitron', sans-serif;
-    font-size: 18px;
+    font-size: clamp(16px, 4vw, 18px);
     font-weight: 700;
     border: none;
     border-radius: 50px;
     cursor: pointer;
     transition: transform 0.2s;
+    min-height: 50px;
 }
 
 .btn-resume {
@@ -432,32 +454,34 @@ html, body {
 
 .gameover-content {
     text-align: center;
-    padding: 30px;
+    padding: 20px;
     max-width: 400px;
+    width: 90%;
 }
 
 .gameover-title {
     font-family: 'Orbitron', sans-serif;
     font-size: clamp(28px, 8vw, 42px);
     color: var(--accent-color);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
+    line-height: 1.1;
 }
 
 .final-score {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .final-score .label {
     display: block;
-    font-size: 14px;
+    font-size: 12px;
     opacity: 0.6;
     letter-spacing: 2px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .final-score .score-value {
     font-family: 'Orbitron', sans-serif;
-    font-size: 56px;
+    font-size: clamp(40px, 10vw, 56px);
     font-weight: 900;
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     -webkit-background-clip: text;
@@ -468,28 +492,28 @@ html, body {
 .stats-container {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin-bottom: 25px;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
 .stat-item {
     background: rgba(255, 255, 255, 0.1);
-    padding: 15px 10px;
+    padding: 12px 8px;
     border-radius: 10px;
     text-align: center;
 }
 
 .stat-label {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     opacity: 0.6;
     letter-spacing: 1px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .stat-value {
     font-family: 'Orbitron', sans-serif;
-    font-size: 18px;
+    font-size: clamp(14px, 3vw, 18px);
     font-weight: 700;
     color: var(--primary-color);
 }
@@ -498,11 +522,11 @@ html, body {
     display: none;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     background: linear-gradient(135deg, rgba(255, 170, 0, 0.2), rgba(255, 217, 0, 0.2));
-    padding: 15px 30px;
+    padding: 12px 25px;
     border-radius: 50px;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     border: 2px solid var(--warning-color);
     animation: pulse 1s ease-in-out infinite;
 }
@@ -512,20 +536,21 @@ html, body {
 }
 
 .new-high-score .trophy {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .btn-play-again, .btn-share {
     width: 100%;
-    padding: 18px;
-    margin-bottom: 15px;
+    padding: clamp(14px, 4vw, 18px);
+    margin-bottom: 12px;
     font-family: 'Orbitron', sans-serif;
-    font-size: 18px;
+    font-size: clamp(16px, 4vw, 18px);
     font-weight: 700;
     border: none;
     border-radius: 50px;
     cursor: pointer;
     transition: transform 0.2s;
+    min-height: 50px;
 }
 
 .btn-play-again {
@@ -540,14 +565,14 @@ html, body {
     color: white;
 }
 
-/* Sound Toggle */
+/* Sound Toggle - Safe area positioning */
 .sound-toggle {
     position: fixed;
-    top: 15px;
-    right: 15px;
-    background: rgba(255, 255, 255, 0.2);
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    background: rgba(255, 255, 255, 0.15);
     border: none;
-    padding: 12px;
+    padding: 10px;
     border-radius: 50%;
     cursor: pointer;
     z-index: 1000;
@@ -555,10 +580,16 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
 }
 
 .sound-toggle:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.sound-toggle:active {
+    transform: scale(0.9);
 }
 
 .sound-toggle.muted svg {
@@ -590,38 +621,57 @@ html, body {
     100% { transform: translateX(100%) rotate(45deg); }
 }
 
-/* Responsive adjustments */
-@media (max-width: 480px) {
+/* Small phones */
+@media (max-width: 400px) {
+    .menu-content {
+        padding: 15px;
+    }
+
     .controls-hint {
-        gap: 10px;
+        gap: 8px;
     }
 
     .hint-item {
-        padding: 10px 15px;
-    }
-
-    .key-icon {
-        padding: 6px 10px;
-        font-size: 14px;
+        padding: 8px 12px;
+        min-width: 65px;
     }
 
     .stats-container {
-        gap: 10px;
+        gap: 8px;
     }
 
     .stat-item {
-        padding: 12px 8px;
+        padding: 10px 6px;
+    }
+
+    .gameover-content {
+        padding: 15px;
+    }
+}
+
+/* Tablet and larger phones */
+@media (min-width: 768px) {
+    .hud {
+        padding: 15px 30px;
+    }
+
+    .pause-content {
+        padding: 50px;
+    }
+
+    .gameover-content {
+        padding: 40px;
     }
 }
 
 /* Landscape mode optimization */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) {
     .game-title {
-        font-size: 24px;
+        font-size: clamp(24px, 5vw, 40px);
     }
 
     .tagline {
-        font-size: 12px;
+        font-size: clamp(12px, 2vw, 16px);
     }
 
     .player-avatar {
@@ -636,5 +686,93 @@ html, body {
 
     .controls-hint {
         display: none;
+    }
+
+    .high-score-display {
+        padding: 10px 20px;
+    }
+}
+
+/* Landscape on small screens */
+@media (orientation: landscape) and (max-height: 400px) {
+    .menu-content {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .game-title {
+        order: 1;
+        width: 100%;
+        margin-bottom: 0 !important;
+    }
+
+    .player-avatar {
+        order: 2;
+        margin: 0;
+    }
+
+    .btn-play {
+        order: 3;
+        margin: 0;
+    }
+
+    .high-score-display {
+        order: 4;
+        margin: 0;
+    }
+
+    .controls-hint {
+        order: 5;
+        width: 100%;
+    }
+
+    .pause-content h2 {
+        font-size: 32px;
+        margin-bottom: 20px;
+    }
+
+    .btn-resume, .btn-quit {
+        padding: 12px 30px;
+        font-size: 16px;
+    }
+
+    .gameover-title {
+        font-size: 28px;
+        margin-bottom: 15px;
+    }
+
+    .final-score .score-value {
+        font-size: 36px;
+    }
+
+    .stats-container {
+        gap: 8px;
+    }
+
+    .stat-item {
+        padding: 8px 5px;
+    }
+
+    .stat-label {
+        font-size: 9px;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+}
+
+/* Fix for iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    .hud {
+        top: max(15px, env(safe-area-inset-top));
+    }
+
+    .sound-toggle {
+        top: max(15px, env(safe-area-inset-top));
     }
 }
