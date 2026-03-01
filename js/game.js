@@ -31,7 +31,7 @@ class CosmicRunner {
         this.doubleScoreActive = false;
         this.slowMotionActive = false;
 
-        // Player - will be set in setupResponsiveValues()
+        // Player
         this.player = {
             x: 0,
             y: 0,
@@ -69,8 +69,15 @@ class CosmicRunner {
         this.pokiSDK = null;
         this.pokiAvailable = false;
 
-        // Difficulty
-        this.difficulty = 1;
+        // Difficulty - EASIER progression
+        this.difficultyLevel = 1;
+        this.difficultyTimer = 0;
+        this.maxDifficulty = 10;
+
+        // Tutorial / Hints
+        this.showHints = true;
+        this.hintsShown = { jump: false, slide: false };
+        this.tutorialTimeout = null;
 
         // Touch handling
         this.touchStartY = 0;
@@ -104,41 +111,32 @@ class CosmicRunner {
     }
 
     resize() {
-        // Fullscreen canvas
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
 
-        // Calculate scale factor based on base resolution
         this.scale = Math.min(
             this.canvas.width / this.baseWidth,
             this.canvas.height / this.baseHeight
         );
 
-        // Ground position - 15% from bottom
         this.groundY = this.canvas.height - (this.canvas.height * 0.15);
-
-        // Setup responsive player values
         this.setupResponsiveValues();
     }
 
     setupResponsiveValues() {
-        // Player size scales with screen
         const basePlayerSize = Math.min(this.canvas.width, this.canvas.height) * 0.08;
         const playerSize = Math.max(40, Math.min(60, basePlayerSize));
 
-        // Update player dimensions
         this.player.width = playerSize;
         this.player.height = playerSize;
         this.player.originalHeight = playerSize;
         this.player.slideHeight = playerSize * 0.5;
-        this.player.x = this.canvas.width * 0.15; // 15% from left
+        this.player.x = this.canvas.width * 0.15;
 
-        // Player stats scale with screen size
         const scaleRatio = this.canvas.height / this.baseHeight;
-        this.player.gravity = 0.8 * scaleRatio;
-        this.player.jumpForce = -15 * scaleRatio;
+        this.player.gravity = 0.6 * scaleRatio;  // Slightly lower gravity for easier control
+        this.player.jumpForce = -13 * scaleRatio; // Slightly lower jump for better control
 
-        // Keep player on ground if in menu/loading
         if (this.state === 'menu' || this.state === 'loading') {
             this.player.y = this.groundY - this.player.height;
         }
@@ -163,7 +161,7 @@ class CosmicRunner {
             }
         });
 
-        // Touch controls with swipe detection
+        // Touch controls
         const touchControls = document.getElementById('touch-controls');
         if (touchControls) {
             touchControls.addEventListener('touchstart', (e) => {
@@ -181,32 +179,29 @@ class CosmicRunner {
                 const deltaX = touch.clientX - this.touchStartX;
                 const deltaY = touch.clientY - this.touchStartY;
 
-                // Check for swipe gestures
                 if (Math.abs(deltaY) > this.minSwipeDistance) {
                     if (deltaY < -this.minSwipeDistance) {
-                        // Swipe up
                         this.handleJump();
+                        this.hideHints();
                     } else if (deltaY > this.minSwipeDistance) {
-                        // Swipe down
                         this.handleSlide();
+                        this.hideHints();
                     }
                 } else {
-                    // Tap detection - tap zone
                     const tapY = this.touchStartY;
                     const screenHeight = this.canvas.height;
 
                     if (tapY < screenHeight * 0.5) {
-                        // Top half tapped
                         this.handleJump();
+                        this.hideHints();
                     } else {
-                        // Bottom half tapped
                         this.handleSlide();
+                        this.hideHints();
                     }
                 }
             }, { passive: false });
         }
 
-        // Prevent default touch behaviors
         document.addEventListener('touchmove', (e) => {
             if (this.state === 'playing') {
                 e.preventDefault();
@@ -245,7 +240,6 @@ class CosmicRunner {
             this.toggleSound();
         });
 
-        // Handle visibility change (pause when tab hidden)
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && this.state === 'playing') {
                 this.togglePause();
@@ -408,13 +402,85 @@ class CosmicRunner {
         }
     }
 
+    hideHints() {
+        if (!this.showHints) return;
+
+        this.hintsShown.jump = true;
+        this.hintsShown.slide = true;
+
+        const hintsEl = document.getElementById('control-hints');
+        const tutorialEl = document.getElementById('tutorial-overlay');
+
+        if (hintsEl) {
+            hintsEl.classList.add('fade-out');
+            setTimeout(() => hintsEl.classList.remove('visible'), 500);
+        }
+        if (tutorialEl) {
+            tutorialEl.classList.add('fade-out');
+            setTimeout(() => tutorialEl.classList.remove('visible'), 300);
+        }
+
+        this.showHints = false;
+    }
+
+    showTutorialHint(type) {
+        if (!this.showHints) return;
+
+        const tutorialEl = document.getElementById('tutorial-overlay');
+        const iconEl = document.getElementById('tutorial-icon');
+        const textEl = document.getElementById('tutorial-text');
+
+        if (!tutorialEl || !iconEl || !textEl) return;
+
+        if (type === 'jump' && !this.hintsShown.jump) {
+            iconEl.textContent = '↑';
+            textEl.textContent = 'TAP TOP / SWIPE UP TO JUMP';
+            tutorialEl.classList.add('visible');
+            this.hintsShown.jump = true;
+
+            setTimeout(() => {
+                tutorialEl.classList.add('fade-out');
+                setTimeout(() => {
+                    tutorialEl.classList.remove('visible', 'fade-out');
+                    this.checkShowSlideHint();
+                }, 300);
+            }, 2000);
+        } else if (type === 'slide' && !this.hintsShown.slide) {
+            this.checkShowSlideHint();
+        }
+    }
+
+    checkShowSlideHint() {
+        if (!this.showHints || this.hintsShown.slide) return;
+
+        setTimeout(() => {
+            const tutorialEl = document.getElementById('tutorial-overlay');
+            const iconEl = document.getElementById('tutorial-icon');
+            const textEl = document.getElementById('tutorial-text');
+
+            if (!tutorialEl || !iconEl || !textEl) return;
+
+            iconEl.textContent = '↓';
+            textEl.textContent = 'TAP BOTTOM / SWIPE DOWN TO SLIDE';
+            tutorialEl.classList.add('visible');
+            this.hintsShown.slide = true;
+
+            setTimeout(() => {
+                tutorialEl.classList.add('fade-out');
+                setTimeout(() => {
+                    tutorialEl.classList.remove('visible', 'fade-out');
+                }, 300);
+            }, 2000);
+        }, 500);
+    }
+
     startGame() {
-        // Reset game state
         this.score = 0;
         this.distance = 0;
         this.starsCollected = 0;
         this.gameSpeed = this.baseSpeed;
-        this.difficulty = 1;
+        this.difficultyLevel = 1;
+        this.difficultyTimer = 0;
         this.obstacles = [];
         this.stars = [];
         this.powerups = [];
@@ -424,7 +490,10 @@ class CosmicRunner {
         this.doubleScoreActive = false;
         this.slowMotionActive = false;
 
-        // Reset player
+        // Reset tutorial hints
+        this.showHints = true;
+        this.hintsShown = { jump: false, slide: false };
+
         this.player.y = this.groundY - this.player.height;
         this.player.velocityY = 0;
         this.player.isJumping = false;
@@ -433,16 +502,28 @@ class CosmicRunner {
         this.player.rotation = 0;
         this.player.height = this.player.originalHeight;
 
-        // UI updates
         this.showScreen('game-screen');
         document.getElementById('current-score').textContent = '0';
         document.getElementById('powerup-indicator')?.classList.remove('active');
+
+        // Show control hints at start
+        const hintsEl = document.getElementById('control-hints');
+        if (hintsEl) {
+            hintsEl.classList.remove('visible', 'fade-out');
+            setTimeout(() => hintsEl.classList.add('visible'), 100);
+        }
 
         this.state = 'playing';
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
 
-        // Poki SDK
+        // Show jump tutorial after a short delay
+        setTimeout(() => {
+            if (this.state === 'playing' && this.showHints) {
+                this.showTutorialHint('jump');
+            }
+        }, 1000);
+
         if (this.pokiSDK) {
             window.PokiSDK_gameStart();
         }
@@ -497,7 +578,6 @@ class CosmicRunner {
             this.player.isJumping = true;
             this.playSound('jump');
 
-            // Jump particles
             for (let i = 0; i < 10; i++) {
                 this.particles.push({
                     x: this.player.x + this.player.width / 2,
@@ -510,7 +590,6 @@ class CosmicRunner {
                 });
             }
         } else if (this.player.isJumping) {
-            // Fast fall on double tap
             this.player.velocityY = Math.abs(this.player.jumpForce) * 0.8;
         }
     }
@@ -523,7 +602,6 @@ class CosmicRunner {
             this.slideTimer = 40;
             this.playSound('slide');
 
-            // Slide particles
             for (let i = 0; i < 8; i++) {
                 this.particles.push({
                     x: this.player.x + this.player.width / 2,
@@ -541,28 +619,39 @@ class CosmicRunner {
     }
 
     spawnObstacle() {
-        const types = ['ground', 'ground', 'ground', 'air', 'tall'];
-        const type = types[Math.floor(Math.random() * types.length)];
+        // EASIER: More ground obstacles, fewer air obstacles at low difficulty
+        let types;
+        if (this.difficultyLevel <= 3) {
+            types = ['ground', 'ground', 'ground']; // Only ground obstacles at start
+        } else if (this.difficultyLevel <= 5) {
+            types = ['ground', 'ground', 'ground', 'air']; // Introduce air obstacles
+        } else if (this.difficultyLevel <= 7) {
+            types = ['ground', 'ground', 'ground', 'air', 'air'];
+        } else {
+            types = ['ground', 'ground', 'ground', 'air', 'air', 'tall']; // Tall obstacles at high difficulty
+        }
 
+        const type = types[Math.floor(Math.random() * types.length)];
         const scaleRatio = this.canvas.height / this.baseHeight;
+
         let obstacle = { x: this.canvas.width + 100, type };
 
         switch (type) {
             case 'ground':
-                obstacle.width = (50 + Math.random() * 30) * scaleRatio;
-                obstacle.height = (50 + Math.random() * 20) * scaleRatio;
+                obstacle.width = (40 + Math.random() * 20) * scaleRatio; // Smaller obstacles
+                obstacle.height = (40 + Math.random() * 15) * scaleRatio;
                 obstacle.y = this.groundY - obstacle.height;
                 obstacle.color = '#ff006e';
                 break;
             case 'air':
-                obstacle.width = 60 * scaleRatio;
-                obstacle.height = 60 * scaleRatio;
-                obstacle.y = this.groundY - (120 * scaleRatio) - Math.random() * (40 * scaleRatio);
+                obstacle.width = 50 * scaleRatio;
+                obstacle.height = 50 * scaleRatio;
+                obstacle.y = this.groundY - (100 * scaleRatio) - Math.random() * (30 * scaleRatio);
                 obstacle.color = '#ff6b6b';
                 break;
             case 'tall':
-                obstacle.width = 40 * scaleRatio;
-                obstacle.height = 100 * scaleRatio;
+                obstacle.width = 35 * scaleRatio;
+                obstacle.height = 80 * scaleRatio;
                 obstacle.y = this.groundY - obstacle.height;
                 obstacle.color = '#c9184a';
                 break;
@@ -581,7 +670,7 @@ class CosmicRunner {
                 for (let i = 0; i < 5; i++) {
                     this.stars.push({
                         x: this.canvas.width + 50 + i * 40 * scaleRatio,
-                        y: this.groundY - (80 * scaleRatio) - Math.random() * (100 * scaleRatio),
+                        y: this.groundY - (80 * scaleRatio) - Math.random() * (80 * scaleRatio),
                         size: 20 * scaleRatio,
                         collected: false,
                         rotation: Math.random() * Math.PI * 2
@@ -592,7 +681,7 @@ class CosmicRunner {
                 for (let i = 0; i < 7; i++) {
                     this.stars.push({
                         x: this.canvas.width + 50 + i * 35 * scaleRatio,
-                        y: this.groundY - (80 * scaleRatio) - Math.sin(i * 0.5) * (60 * scaleRatio),
+                        y: this.groundY - (80 * scaleRatio) - Math.sin(i * 0.5) * (50 * scaleRatio),
                         size: 20 * scaleRatio,
                         collected: false,
                         rotation: Math.random() * Math.PI * 2
@@ -602,8 +691,8 @@ class CosmicRunner {
             case 'scattered':
                 for (let i = 0; i < 4; i++) {
                     this.stars.push({
-                        x: this.canvas.width + 50 + Math.random() * (150 * scaleRatio),
-                        y: this.groundY - (60 * scaleRatio) - Math.random() * (120 * scaleRatio),
+                        x: this.canvas.width + 50 + Math.random() * (120 * scaleRatio),
+                        y: this.groundY - (60 * scaleRatio) - Math.random() * (100 * scaleRatio),
                         size: 20 * scaleRatio,
                         collected: false,
                         rotation: Math.random() * Math.PI * 2
@@ -620,7 +709,7 @@ class CosmicRunner {
 
         this.powerups.push({
             x: this.canvas.width + 50,
-            y: this.groundY - (80 * scaleRatio) - Math.random() * (80 * scaleRatio),
+            y: this.groundY - (80 * scaleRatio) - Math.random() * (60 * scaleRatio),
             type: type,
             size: 30 * scaleRatio,
             collected: false
@@ -631,14 +720,12 @@ class CosmicRunner {
         this.player.velocityY += this.player.gravity;
         this.player.y += this.player.velocityY;
 
-        // Ground collision
         if (this.player.y >= this.groundY - this.player.height) {
             this.player.y = this.groundY - this.player.height;
             this.player.velocityY = 0;
             this.player.isJumping = false;
         }
 
-        // Slide timer
         if (this.player.isSliding) {
             this.slideTimer--;
             if (this.slideTimer <= 0) {
@@ -648,7 +735,6 @@ class CosmicRunner {
             }
         }
 
-        // Rotation when jumping
         if (this.player.isJumping) {
             this.player.rotation += 0.15;
         } else {
@@ -689,13 +775,14 @@ class CosmicRunner {
             }
         }
 
-        // Spawn obstacles
+        // Spawn obstacles - SLOWER progression
         this.obstacleTimer--;
         if (this.obstacleTimer <= 0) {
             this.spawnObstacle();
             const scaleRatio = this.canvas.height / this.baseHeight;
-            this.obstacleTimer = (60 + Math.random() * 60 - this.difficulty * 10) / scaleRatio;
-            if (this.obstacleTimer < 30) this.obstacleTimer = 30;
+            // More generous timing between obstacles
+            const baseTimer = 80 + (this.difficultyLevel * 5);
+            this.obstacleTimer = (baseTimer + Math.random() * 40) / scaleRatio;
         }
     }
 
@@ -735,11 +822,10 @@ class CosmicRunner {
             }
         }
 
-        // Spawn stars
         this.starTimer--;
         if (this.starTimer <= 0) {
             this.spawnStar();
-            this.starTimer = 100 + Math.random() * 100;
+            this.starTimer = 80 + Math.random() * 60;
         }
     }
 
@@ -764,11 +850,10 @@ class CosmicRunner {
             }
         }
 
-        // Spawn powerups
         this.powerupTimerSpawn--;
         if (this.powerupTimerSpawn <= 0) {
             this.spawnPowerup();
-            this.powerupTimerSpawn = 300 + Math.random() * 300;
+            this.powerupTimerSpawn = 400 + Math.random() * 400; // More frequent powerups
         }
     }
 
@@ -836,13 +921,38 @@ class CosmicRunner {
     }
 
     checkCollision(player, obstacle) {
-        const padding = Math.max(4, this.player.width * 0.15);
+        // More generous hitbox
+        const padding = Math.max(6, this.player.width * 0.2);
         return (
             player.x + padding < obstacle.x + obstacle.width &&
             player.x + player.width - padding > obstacle.x &&
             player.y + padding < obstacle.y + obstacle.height &&
             player.y + player.height - padding > obstacle.y
         );
+    }
+
+    updateDifficulty() {
+        this.difficultyTimer++;
+
+        // Increase difficulty every 5 seconds (300 frames at 60fps)
+        if (this.difficultyTimer >= 300 && this.difficultyLevel < this.maxDifficulty) {
+            this.difficultyLevel++;
+            this.difficultyTimer = 0;
+
+            // Gradually increase speed
+            this.gameSpeed = this.baseSpeed + (this.difficultyLevel - 1) * 0.5;
+        }
+    }
+
+    updateScore() {
+        this.distance += this.gameSpeed * 0.01;
+        this.score += this.doubleScoreActive ? 0.02 : 0.01;
+
+        if (this.slowMotionActive) {
+            this.gameSpeed *= 0.5;
+        }
+
+        document.getElementById('current-score').textContent = this.formatScore(this.score);
     }
 
     gameOver() {
@@ -872,17 +982,6 @@ class CosmicRunner {
         }
     }
 
-    updateScore() {
-        this.distance += this.gameSpeed * 0.01;
-        this.score += this.doubleScoreActive ? 0.02 : 0.01;
-        this.difficulty += 0.001;
-        this.gameSpeed = this.baseSpeed + this.difficulty * 2;
-        if (this.slowMotionActive) {
-            this.gameSpeed *= 0.5;
-        }
-        document.getElementById('current-score').textContent = this.formatScore(this.score);
-    }
-
     renderMenuBackground() {
         this.ctx.fillStyle = '#050510';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -906,7 +1005,6 @@ class CosmicRunner {
     }
 
     render() {
-        // Clear
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -1074,7 +1172,7 @@ class CosmicRunner {
         this.ctx.globalAlpha = 1;
 
         // Speed lines
-        if (this.gameSpeed > 8) {
+        if (this.gameSpeed > 10) {
             this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             this.ctx.lineWidth = 1;
             for (let i = 0; i < 10; i++) {
@@ -1100,6 +1198,7 @@ class CosmicRunner {
         this.updateParticles();
         this.updateBackground();
         this.updatePowerupTimer();
+        this.updateDifficulty();
         this.updateScore();
         this.render();
 
